@@ -1,0 +1,1 @@
+This is my Yelp challenge project. Please check out the User Doc and my Powerpoint presentation for more info!
