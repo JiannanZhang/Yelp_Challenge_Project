@@ -1,0 +1,159 @@
+---
+title: "Yelp Project"
+author: "Jiannan(Jeffrey) Zhang and Yifang Peng"
+output: html_document
+---
+
+## 1. Loading of R packages: RCurl, ggplot2, extrafont, jsonlite, dplyr, tidyr, extrafont, jsonlite, reshape2, tm, wordcloud, SnowballC (R code not shown)
+
+```{r, include=FALSE}
+library(RCurl)
+library (ggplot2)
+library(extrafont)
+library(reshape2)
+library(rCharts)
+require("jsonlite")
+require(dplyr)
+require(tidyr)
+require(reshape2)
+require(tm)
+require(wordcloud)
+require(SnowballC)
+
+## utility function to add required assets such as CSS and JS libraries
+add_lib_assets <- function(lib, cdn = F,css=NULL) {
+    assets = get_assets(get_lib(lib), cdn = cdn)
+    if(!is.null(css)){assets$css=c(assets$css,css)}
+    styles <- lapply(assets$css, function(style) {
+        sprintf("<link rel='stylesheet' href=%s>", style)
+    })
+
+    scripts <- lapply(assets$jshead, function(script) {
+        sprintf("<script type='text/javascript' src=%s></script>", script)
+    })
+    cat(paste(c(styles, scripts), collapse = "\n"))
+}
+
+# get assets from online repositories 
+add_lib_assets("NVD3",cdn=TRUE,css="http://rawgithub.com/ramnathv/rCharts/master/inst/libraries/nvd3/css/rNVD3.css") 
+add_lib_assets("Polycharts",cdn=TRUE)
+```
+
+##Read df_state_avgStar in from Oracle 
+```{r}
+df_state_avgStar <- data.frame(fromJSON(getURL(URLencode('129.152.144.84:5001/rest/native/?query="select * from state_avgstar"'),httpheader=c(DB='jdbc:oracle:thin:@129.152.144.84:1521:ORCL',USER='C##cs329e_jz7674',PASS='orcl_jz7674',MODE='native_mode',MODEL='model',returnDimensions = 'False',returnFor = 'JSON'),verbose = TRUE)))
+head(df_state_avgStar)
+```
+
+##Beautiful bubble plot (R code not shown)
+```{r}
+df_state_avgStar %>% ggplot(aes(x=STATE,y=AVG_STAR, color=STATE,size=AVG_STAR)) + geom_point() + theme(axis.text.x=element_text(angle=90, size=20, vjust=0.5)) + theme(axis.text.x=element_text(size=10, face="bold", vjust=1)) + theme(axis.title.x=element_text(color="forestgreen", vjust=0.35),axis.title.y=element_text(color="cadetblue", vjust=0.35)) + labs(title="State VS BusinessStar",y="BusinessStar",x="State")
+
+names(df_state_avgStar) = gsub("\\.", "", names(df_state_avgStar))
+rPlot(AVG_STAR ~ STATE, data = df_state_avgStar, color = 'STATE', type = 'point')
+```
+
+## Text mining for AZ (About 20K reviews)
+```{r}
+# read the file in 
+AZ_review_text_tb <- read.csv("~/Desktop/Yelp Project/Yelp_project_review_dataset/AZ_REVIEWTEXT_DATA_TABLE.csv") 
+# turn the object into Corpus, a special object in r
+AZ_text <- Corpus(VectorSource(AZ_review_text_tb$TEXT))
+AZ_text <- tm_map(AZ_text, stripWhitespace) # remove white spaces 
+AZ_text <- tm_map(AZ_text, tolower) # convert to lower 
+AZ_text <- tm_map(AZ_text, removeWords, stopwords('english')) # remove common English words such as 'a', 'an'
+AZ_text <- tm_map(AZ_text, removeWords, c('the')) # remove word "the"
+```
+
+##Create a word cloud for AZ
+```{r}
+wordcloud(AZ_text, scale=c(5,0.5), max.words=50, random.order=FALSE, rot.per=0.1, use.r.layout=FALSE, colors=brewer.pal(8, 'Dark2'))
+```
+
+## Text mining for PA 
+```{r}
+PA_review_text_tb <- read.csv("~/Desktop/Yelp Project/Yelp_project_review_dataset/PA_REVIEWTEXT_DATA_TABLE.csv")
+PA_text <- Corpus(VectorSource(PA_review_text_tb$TEXT))
+PA_text <- tm_map(PA_text, stripWhitespace)
+PA_text <- tm_map(PA_text, tolower)
+PA_text <- tm_map(PA_text, removeWords, stopwords('english'))
+PA_text <- tm_map(PA_text, removeWords, c('the'))
+
+```
+
+## Create a word cloud for PA
+```{r}
+wordcloud(PA_text, scale=c(5,0.5), max.words=50, random.order=FALSE, rot.per=0.1, use.r.layout=FALSE, colors=brewer.pal(8, 'Dark2'))
+```
+
+### From the word cloud, we know that 'pizza' and 'chicken' are two most used word referring to word. Moreover, from later analysis, we will found that 'pizza' are more popular than 'chicken'
+
+## Text mining for NV (About 10K reviews) In order to compare with AZ
+```{r}
+NV_review_text_tb <- read.csv("~/Desktop/Yelp Project/Yelp_project_review_dataset/NV_REVIEWTEXT_DATA_TABLE.csv")
+NV_text <- Corpus(VectorSource(NV_review_text_tb$TEXT))
+NV_text <- tm_map(NV_text, stripWhitespace)
+NV_text <- tm_map(NV_text, tolower)
+NV_text <- tm_map(NV_text, removeWords, stopwords('english'))
+NV_text <- tm_map(NV_text, removeWords, c('the'))
+```
+
+##Create a word cloud for NV
+```{r}
+wordcloud(NV_text, scale=c(5,0.5), max.words=50, random.order=FALSE, rot.per=0.1, use.r.layout=FALSE, colors=brewer.pal(8, 'Dark2'))
+```
+### Compare this cloud to AZ's cloud, we infer that overall people in NV like chicken more!
+
+
+## Next we are interested in some small cities and want to see what we can find from these smaller samples. We draw a sample of review text from Charlotte, NC (About 1K reviews).
+```{r}
+NC_review_text_tb <- read.csv("~/Desktop/Yelp Project/Yelp_project_review_dataset/NC_REVIEWTEXT_DATA_TABLE.csv")
+NC_text <- Corpus(VectorSource(NC_review_text_tb$TEXT))
+NC_text <- tm_map(NC_text, stripWhitespace)
+NC_text <- tm_map(NC_text, tolower)
+NC_text <- tm_map(NC_text, removeWords, stopwords('english'))
+NC_text <- tm_map(NC_text, removeWords, c('the'))
+```
+
+## Create a word cloud for NC
+```{r}
+wordcloud(NC_text, scale=c(5,0.5), max.words=50, random.order=FALSE, rot.per=0.35, use.r.layout=FALSE, colors=brewer.pal(8, 'Dark2'))
+```
+
+### An interesting thing to me is that the word 'german' is frequently used word. Then I guess there should be many german businesses in Charlotte. I googled this Q and found some info to back up my guess. "There are 194 German-owned firms in Charlotte USA including 59 U.S. headquarters; making Germany the most largely represented foreign country in the region..."(http://charlotteusa.com/business-info/international-business/germany)
+
+
+## Back to AZ. Finally we want to focus our study on AZ 
+### Hierarchical Clustering Analysis for frequently used terms in AZ
+```{r,fig.width=18}
+AZ_text_tmDoc <- TermDocumentMatrix(AZ_text,control=list(wordLength=c(1,Inf)))
+# AZ_text_tmDoc.TmDoc
+# dimnames(AZ_text_tmDoc)$Terms
+# findFreqTerms(AZ_text_tmDoc,highfreq=20)
+AZ_text.tdm2 <- removeSparseTerms(AZ_text_tmDoc,sparse = 0.95)
+AZ_text.mat2 <- as.matrix(AZ_text.tdm2)
+distMat <- dist(scale(AZ_text.mat2))
+AZ_text.fit <- hclust(distMat,method='ward')
+plot(AZ_text.fit,cex=0.9,hang=-1,main='Word Cluster Dendrogram')
+rect.hclust(AZ_text.fit,k=5)
+```
+
+### Hierarchical Clustering Analysis for frequently used terms in NV
+```{r,fig.width=18}
+NV_text_tmDoc <- TermDocumentMatrix(NV_text,control=list(wordLength=c(1,Inf)))
+NV_text.tdm2 <- removeSparseTerms(NV_text_tmDoc,sparse = 0.95)
+NV_text.mat2 <- as.matrix(NV_text.tdm2)
+distMat <- dist(scale(NV_text.mat2))
+NV_text.fit <- hclust(distMat,method='ward')
+plot(NV_text.fit,cex=0.9,hang=-1,main='Word Cluster Dendrogram')
+rect.hclust(AZ_text.fit,k=5)
+```
+
+### Discussion: 
+### 1. We could infer that, overall or on AVG, people in AZ like pizza better than chicken and there seems to be more pizza-realted business in AZ.
+### 2. Ovrall or on AVG, pizza-realted businesses have better customer service (always, love, friendly,service) than chicken-realted business or restaurants (recommended, customer, service)
+
+### Conclusion: 1. In AZ, Future business attention of chicken-related business are likely to focus on improving the customer service so that they are very likely to get better reviews and more reviews. 
+### 2. In AZ, it is likely that there are going to be more investment on AZ's pizza-related business from what we have inferred. 
+
+
